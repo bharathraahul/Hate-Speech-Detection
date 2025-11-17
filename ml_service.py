@@ -71,9 +71,21 @@ def train_model(texts, labels, algorithm="naive_bayes", test_size=0.2):
         logger.info(f"Data split: {len(X_train)} train, {len(X_test)} test samples")
         
         # Create pipeline
+        # if algorithm == "logistic_regression":
+        #     classifier = LogisticRegression(max_iter=1000, random_state=42)
+        # else:
+        #     classifier = MultinomialNB()
+        # Create pipeline
         if algorithm == "logistic_regression":
-            classifier = LogisticRegression(max_iter=1000, random_state=42)
+            # Add class_weight="balanced" to automatically handle the imbalanced dataset
+            classifier = LogisticRegression(
+                max_iter=1000, 
+                random_state=42, 
+                class_weight="balanced"
+            )
         else:
+            # Note: MultinomialNB doesn't support class_weight, 
+            # so Logistic Regression will give a much better, more balanced model.
             classifier = MultinomialNB()
         
         pipeline = Pipeline([
