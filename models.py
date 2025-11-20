@@ -17,8 +17,10 @@ class TrainRequest(BaseModel):
     custom_url: Optional[str] = None
     text_column: Optional[str] = "text"
     label_column: Optional[str] = "label"
-    algorithm: str = "naive_bayes"
+    algorithm: str = "logistic_regression"  # Changed default to better performing model
     test_size: float = 0.2
+    use_preprocessing: bool = True  # Enable text preprocessing by default
+    tune_hyperparameters: bool = False  # Grid search (slower but better results)
 
 class TestResult(BaseModel):
     text: str

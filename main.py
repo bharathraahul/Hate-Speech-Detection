@@ -21,7 +21,7 @@ async def startup_event():
         logger.warning("Failed to load web data, using sample data")
         texts, labels = SAMPLE_DATA["texts"], SAMPLE_DATA["labels"]
     
-    ml_service.train_model(texts, labels, algorithm="naive_bayes")
+    ml_service.train_model(texts, labels, algorithm="logistic_regression", use_preprocessing=True)
 
 @app.get("/")
 def root():
@@ -31,13 +31,20 @@ def root():
         "endpoints": {
             "/predict": "POST - Predict hate speech for new text",
             "/batch-predict": "POST - Predict multiple texts",
-            "/train": "POST - Train model with dataset",
+            "/train": "POST - Train model with dataset (algorithms: naive_bayes, logistic_regression, svm, random_forest)",
             "/test-results": "GET - View test set predictions",
             "/test-sample": "GET - View random test samples",
             "/evaluate": "GET - Get detailed evaluation metrics",
             "/model-info": "GET - Get model information",
             "/datasets": "GET - List available datasets",
             "/health": "GET - Health check"
+        },
+        "improvements": {
+            "text_preprocessing": "Enabled by default - cleans URLs, mentions, special chars",
+            "better_features": "Improved TF-IDF with 10k features, sublinear scaling",
+            "algorithms": "Support for logistic_regression, svm, random_forest, naive_bayes",
+            "class_balance": "Automatic class weight balancing for imbalanced datasets",
+            "hyperparameter_tuning": "Optional grid search for optimal parameters"
         }
     }
 
@@ -192,7 +199,14 @@ async def train_with_dataset(request: TrainRequest):
         raise HTTPException(status_code=500, detail="Failed to load dataset")
     
     # Train model
-    success = ml_service.train_model(texts, labels, request.algorithm, request.test_size)
+    success = ml_service.train_model(
+        texts, 
+        labels, 
+        algorithm=request.algorithm, 
+        test_size=request.test_size,
+        use_preprocessing=request.use_preprocessing,
+        tune_hyperparameters=request.tune_hyperparameters
+    )
     
     if not success:
         raise HTTPException(status_code=500, detail="Model training failed")
