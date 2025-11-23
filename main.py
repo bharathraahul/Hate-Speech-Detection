@@ -2,14 +2,25 @@ import uvicorn
 import numpy as np
 from typing import List
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 
 # Local imports
-from models import TextInput, PredictionOutput, TrainRequest
-from config import logger, DATASET_URLS, SAMPLE_DATA
+from models import TextInput, PredictionOutput, TrainRequest, ParaphraseRequest, ParaphraseResponse
+from config import logger, DATASET_URLS, SAMPLE_DATA, PARAPHRASER_CONFIG
 import global_state as state
 import ml_service
+import paraphraser_service
 
 app = FastAPI(title="Hate Speech Detection API with Train/Test Split")
+
+# Add CORS middleware for UI integration
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # In production, replace with specific origins
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.on_event("startup")
 async def startup_event():
@@ -32,6 +43,7 @@ def root():
             "/predict": "POST - Predict hate speech for new text",
             "/batch-predict": "POST - Predict multiple texts",
             "/train": "POST - Train model with dataset (algorithms: naive_bayes, logistic_regression, svm, random_forest)",
+            "/paraphrase": "POST - Paraphrase text (supports transformer and rule-based methods)",
             "/test-results": "GET - View test set predictions",
             "/test-sample": "GET - View random test samples",
             "/evaluate": "GET - Get detailed evaluation metrics",
@@ -251,6 +263,51 @@ def batch_predict(texts: List[TextInput]):
     results = ml_service.predict_batch(input_texts)
     
     return {"results": results, "total": len(results)}
+
+@app.post("/paraphrase", response_model=ParaphraseResponse)
+def paraphrase_text(request: ParaphraseRequest):
+    """
+    Paraphrase input text using transformer or rule-based methods.
+    
+    Args:
+        request: ParaphraseRequest with text, num_paraphrases, and optional method
+        
+    Returns:
+        ParaphraseResponse with original text, paraphrases, and method used
+    """
+    if not request.text or not request.text.strip():
+        raise HTTPException(status_code=400, detail="Text cannot be empty")
+    
+    # Validate num_paraphrases
+    num_paraphrases = max(1, min(request.num_paraphrases, 5))  # Limit to 1-5
+    
+    try:
+        # Get paraphraser instance
+        paraphraser = paraphraser_service.get_paraphraser(
+            use_transformer=PARAPHRASER_CONFIG["use_transformer"],
+            model_name=PARAPHRASER_CONFIG["model_name"]
+        )
+        
+        # Paraphrase the text
+        paraphrases = paraphraser.paraphrase(
+            text=request.text,
+            num_paraphrases=num_paraphrases,
+            method=request.method
+        )
+        
+        # Determine which method was actually used
+        method_used = "transformer" if paraphraser.use_transformer and paraphraser._loaded else "rule_based"
+        
+        return ParaphraseResponse(
+            original_text=request.text,
+            paraphrases=paraphrases,
+            method_used=method_used,
+            count=len(paraphrases)
+        )
+        
+    except Exception as e:
+        logger.error(f"Paraphrasing error: {e}")
+        raise HTTPException(status_code=500, detail=f"Paraphrasing error: {str(e)}")
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

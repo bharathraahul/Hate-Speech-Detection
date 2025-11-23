@@ -28,3 +28,14 @@ class TestResult(BaseModel):
     predicted_label: int
     is_correct: bool
     confidence: float
+
+class ParaphraseRequest(BaseModel):
+    text: str
+    num_paraphrases: int = 1  # Number of paraphrases to generate
+    method: Optional[str] = None  # "transformer" or "rule_based", None for auto
+
+class ParaphraseResponse(BaseModel):
+    original_text: str
+    paraphrases: List[str]
+    method_used: str  # "transformer" or "rule_based"
+    count: int

@@ -10,6 +10,15 @@ DATASET_URLS = {
     "twitter_hate": "https://raw.githubusercontent.com/t-davidson/hate-speech-and-offensive-language/master/data/labeled_data.csv",
 }
 
+# --- Paraphraser Configuration ---
+PARAPHRASER_CONFIG = {
+    "use_transformer": True,  # Use transformer model if available
+    "model_name": "tuner007/pegasus_paraphrase",  # Hugging Face model
+    "fallback_to_rule_based": True,  # Fall back to rule-based if transformer fails
+    "max_text_length": 500,  # Maximum text length for paraphrasing
+    "default_num_paraphrases": 1,  # Default number of paraphrases to generate
+}
+
 # --- Sample Data (Fallback) ---
 SAMPLE_DATA = {
     "texts": [
