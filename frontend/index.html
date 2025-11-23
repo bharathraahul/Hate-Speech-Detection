@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hate Speech Detector</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #F3F4F6;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            color: #1F2937;
+        }
+
+        h1 {
+            color: #4F46E5;
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            font-weight: 700;
+        }
+
+        .subtitle {
+            color: #4B5563;
+            margin-bottom: 2rem;
+            font-size: 1rem;
+        }
+
+        .card {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            width: 100%;
+            max-width: 600px;
+            box-sizing: border-box;
+        }
+
+        textarea {
+            width: 100%;
+            height: 150px;
+            padding: 1rem;
+            border: 1px solid #6366F1;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 1rem;
+            resize: none;
+            box-sizing: border-box;
+            outline: none;
+            color: #374151;
+        }
+
+        textarea:focus {
+            border: 2px solid #4F46E5;
+        }
+
+        button {
+            width: 100%;
+            background-color: #4F46E5;
+            color: white;
+            padding: 0.75rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 1.5rem;
+            transition: background-color 0.2s;
+        }
+
+        button:hover { background-color: #4338CA; }
+        button:disabled { background-color: #A5B4FC; cursor: not-allowed; }
+
+        .result-box {
+            margin-top: 2rem;
+            padding: 1rem;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .result-header { font-weight: 700; display: block; margin-bottom: 0.5rem; }
+        
+        .safe { background-color: #DEF7EC; color: #03543F; border: 1px solid #84E1BC; }
+        .hate { background-color: #FDE8E8; color: #9B1C1C; border: 1px solid #F8B4B4; }
+
+        .replacement-section {
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Hate Speech Detector</h1>
+    <p class="subtitle">Enter text below to detect hate speech and get a positive replacement.</p>
+
+    <div class="card">
+        <textarea id="inputText" placeholder="Type something here..."></textarea>
+        <button id="analyzeBtn" onclick="analyzeText()">Analyze Text</button>
+
+        <div id="resultContainer" class="result-box">
+            <span id="resultHeader" class="result-header"></span>
+            <span id="resultText"></span>
+            
+            <div id="rewriteContainer" class="replacement-section" style="display:none;">
+                <strong>Censored Text:</strong>
+                <p id="rewriteText" style="color: #4F46E5; font-weight: 500; font-family: monospace;"></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function analyzeText() {
+            const input = document.getElementById('inputText').value;
+            const btn = document.getElementById('analyzeBtn');
+            const resultContainer = document.getElementById('resultContainer');
+            const resultHeader = document.getElementById('resultHeader');
+            const resultText = document.getElementById('resultText');
+            const rewriteContainer = document.getElementById('rewriteContainer');
+            const rewriteText = document.getElementById('rewriteText');
+
+            if (!input.trim()) return alert("Please enter text");
+
+            btn.innerText = "Analyzing...";
+            btn.disabled = true;
+            resultContainer.style.display = 'none';
+
+            try {
+                const response = await fetch('http://localhost:8000/predict', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: input })
+                });
+
+                const data = await response.json();
+                resultContainer.style.display = 'block';
+
+                if (data.is_hate_speech) {
+                    resultContainer.className = 'result-box hate';
+                    resultHeader.innerText = "⚠️ Hate Speech Detected";
+                    resultText.innerText = `Confidence: ${(data.confidence * 100).toFixed(1)}%`;
+                    
+                    rewriteContainer.style.display = 'block';
+                    rewriteText.innerText = data.clean_text;
+                } else {
+                    resultContainer.className = 'result-box safe';
+                    resultHeader.innerText = "✅ This text looks safe";
+                    resultText.innerText = "No hate speech detected.";
+                    rewriteContainer.style.display = 'none';
+                }
+
+            } catch (error) {
+                alert("Backend error. Is the Python server running?");
+                console.error(error);
+            } finally {
+                btn.innerText = "Analyze Text";
+                btn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>
