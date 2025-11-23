@@ -23,6 +23,7 @@ from sklearn.metrics import (
 # Local imports
 from config import logger
 import global_state as state
+import hate_speech_patterns
 
 
 def preprocess_text(text: str) -> str:
@@ -276,13 +277,14 @@ def train_model(texts, labels, algorithm="naive_bayes", test_size=0.2, use_prepr
         state.model = None
         return False
 
-def predict_single(text: str, preprocess=False):
+def predict_single(text: str, preprocess=False, use_pattern_matching=True):
     """
-    Make a prediction on a single text string.
+    Make a prediction on a single text string with optional pattern matching.
     
     Args:
         text: Input text to classify
         preprocess: Whether to manually preprocess (usually not needed as pipeline handles it)
+        use_pattern_matching: Whether to use rule-based pattern matching as fallback
     """
     if state.model is None:
         raise ValueError("Model is not trained")
@@ -295,20 +297,43 @@ def predict_single(text: str, preprocess=False):
     try:
         probabilities = state.model.predict_proba([text])[0]
         prediction = state.model.predict([text])[0]
-        confidence = float(probabilities[1])
+        ml_confidence = float(probabilities[1])
     except AttributeError:
         # For models without predict_proba (like LinearSVC), use decision_function
         prediction = state.model.predict([text])[0]
         try:
             decision_scores = state.model.decision_function([text])[0]
             # Convert decision function to probability-like score using sigmoid
-            confidence = 1 / (1 + np.exp(-decision_scores)) if prediction == 1 else 1 / (1 + np.exp(decision_scores))
+            ml_confidence = 1 / (1 + np.exp(-decision_scores)) if prediction == 1 else 1 / (1 + np.exp(decision_scores))
         except:
-            confidence = 0.5  # Default confidence if we can't calculate
+            ml_confidence = 0.5  # Default confidence if we can't calculate
+    
+    # Hybrid approach: Combine ML prediction with pattern matching
+    if use_pattern_matching:
+        pattern_result = hate_speech_patterns.check_hate_speech_patterns(text)
+        pattern_match = pattern_result["pattern_match"]
+        pattern_confidence = pattern_result["confidence"]
+        
+        # If pattern matching detects hate speech, override ML if ML confidence is low
+        if pattern_match and pattern_confidence > 0.7:
+            if prediction == 0 or ml_confidence < 0.6:
+                # Pattern matching is confident, ML is not - use pattern matching
+                logger.info(f"Pattern matching overrode ML: pattern_conf={pattern_confidence:.2f}, ml_conf={ml_confidence:.2f}")
+                prediction = 1
+                # Use weighted average, but favor pattern matching when it's confident
+                confidence = max(ml_confidence, pattern_confidence * 0.8)
+            else:
+                # Both agree or ML is confident - use weighted average
+                confidence = (ml_confidence * 0.6 + pattern_confidence * 0.4)
+        else:
+            # Pattern matching doesn't detect or is uncertain - use ML
+            confidence = ml_confidence
+    else:
+        confidence = ml_confidence
     
     return int(prediction), float(confidence)
 
-def predict_batch(texts: List[str]):
+def predict_batch(texts: List[str], use_pattern_matching=True):
     """Make predictions on a batch of text strings"""
     if state.model is None:
         raise ValueError("Model is not trained")
@@ -316,7 +341,7 @@ def predict_batch(texts: List[str]):
     results = []
     for text in texts:
         try:
-            prediction, confidence = predict_single(text)
+            prediction, confidence = predict_single(text, use_pattern_matching=use_pattern_matching)
             results.append({
                 "text": text,
                 "is_hate_speech": bool(prediction == 1),

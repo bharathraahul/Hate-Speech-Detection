@@ -2,14 +2,26 @@ import uvicorn
 import numpy as np
 from typing import List
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 
 # Local imports
-from models import TextInput, PredictionOutput, TrainRequest
-from config import logger, DATASET_URLS, SAMPLE_DATA
+from models import TextInput, PredictionOutput, TrainRequest, ParaphraseRequest, ParaphraseResponse, MaskRequest, MaskResponse
+from config import logger, DATASET_URLS, SAMPLE_DATA, PARAPHRASER_CONFIG
 import global_state as state
 import ml_service
+import paraphraser_service
+import masking_service
 
 app = FastAPI(title="Hate Speech Detection API with Train/Test Split")
+
+# Add CORS middleware for UI integration
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # In production, replace with specific origins
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.on_event("startup")
 async def startup_event():
@@ -32,6 +44,8 @@ def root():
             "/predict": "POST - Predict hate speech for new text",
             "/batch-predict": "POST - Predict multiple texts",
             "/train": "POST - Train model with dataset (algorithms: naive_bayes, logistic_regression, svm, random_forest)",
+            "/paraphrase": "POST - Paraphrase text (DEPRECATED - use /mask instead)",
+            "/mask": "POST - Mask offensive words in text when hate speech is detected",
             "/test-results": "GET - View test set predictions",
             "/test-sample": "GET - View random test samples",
             "/evaluate": "GET - Get detailed evaluation metrics",
@@ -218,7 +232,7 @@ async def train_with_dataset(request: TrainRequest):
 
 @app.post("/predict", response_model=PredictionOutput)
 def predict_hate_speech(input_data: TextInput):
-    """Predict hate speech for new text"""
+    """Predict hate speech for new text with hybrid ML + pattern matching"""
     if state.model is None:
         raise HTTPException(status_code=503, detail="Model not trained")
     
@@ -226,7 +240,12 @@ def predict_hate_speech(input_data: TextInput):
         raise HTTPException(status_code=400, detail="Text cannot be empty")
     
     try:
-        prediction, confidence = ml_service.predict_single(input_data.text)
+        # Use pattern matching by default (can be disabled via use_pattern_matching=False)
+        use_pattern = getattr(input_data, 'use_pattern_matching', True)
+        prediction, confidence = ml_service.predict_single(
+            input_data.text, 
+            use_pattern_matching=use_pattern
+        )
         
         return PredictionOutput(
             text=input_data.text,
@@ -248,9 +267,137 @@ def batch_predict(texts: List[TextInput]):
         raise HTTPException(status_code=400, detail="Maximum 100 texts per batch")
     
     input_texts = [t.text for t in texts]
-    results = ml_service.predict_batch(input_texts)
+    # Use pattern matching from first text's setting (or default True)
+    use_pattern = getattr(texts[0], 'use_pattern_matching', True) if texts else True
+    results = ml_service.predict_batch(input_texts, use_pattern_matching=use_pattern)
     
     return {"results": results, "total": len(results)}
+
+@app.post("/mask", response_model=MaskResponse)
+def mask_hate_speech(request: MaskRequest):
+    """
+    Mask offensive words in text ONLY if it contains hate speech.
+    First checks for hate speech, then masks offensive words if detected.
+    
+    Args:
+        request: MaskRequest with text and optional mask_char
+        
+    Returns:
+        MaskResponse with original text, masked text (if hate speech detected),
+        and hate speech detection results
+    """
+    if not request.text or not request.text.strip():
+        raise HTTPException(status_code=400, detail="Text cannot be empty")
+    
+    try:
+        # First, check if the text contains hate speech
+        if state.model is None:
+            raise HTTPException(status_code=503, detail="Hate speech detection model not trained")
+        
+        # Check for hate speech using the hybrid approach
+        prediction, confidence = ml_service.predict_single(
+            request.text,
+            use_pattern_matching=True
+        )
+        
+        is_hate_speech = bool(prediction == 1)
+        
+        # Only mask if hate speech is detected
+        if not is_hate_speech:
+            return MaskResponse(
+                original_text=request.text,
+                masked_text=None,
+                is_hate_speech=False,
+                hate_speech_confidence=float(confidence),
+                was_masked=False,
+                masked_words=[],
+                words_masked=0,
+                message="No hate speech detected. Text was not masked."
+            )
+        
+        # Hate speech detected - proceed with masking
+        logger.info(f"Masking hate speech text (confidence: {confidence:.2f})")
+        
+        # Get masking service instance
+        masker = masking_service.get_masking_service()
+        
+        # Mask the text
+        mask_result = masker.mask_text(
+            text=request.text,
+            mask_char=request.mask_char or "[REDACTED]"
+        )
+        
+        return MaskResponse(
+            original_text=request.text,
+            masked_text=mask_result["masked_text"],
+            is_hate_speech=True,
+            hate_speech_confidence=float(confidence),
+            was_masked=True,
+            masked_words=mask_result["masked_words"],
+            words_masked=mask_result["words_masked"],
+            message=f"Hate speech detected (confidence: {confidence:.2%}). Offensive words have been masked."
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Masking error: {e}")
+        raise HTTPException(status_code=500, detail=f"Masking error: {str(e)}")
+
+@app.post("/paraphrase", response_model=ParaphraseResponse)
+def paraphrase_text(request: ParaphraseRequest):
+    """
+    DEPRECATED: Use /mask instead.
+    Paraphrase input text ONLY if it contains hate speech.
+    """
+    logger.warning("/paraphrase endpoint is deprecated. Use /mask instead.")
+    # Redirect to mask endpoint logic but return old format for backward compatibility
+    if not request.text or not request.text.strip():
+        raise HTTPException(status_code=400, detail="Text cannot be empty")
+    
+    try:
+        if state.model is None:
+            raise HTTPException(status_code=503, detail="Hate speech detection model not trained")
+        
+        prediction, confidence = ml_service.predict_single(
+            request.text,
+            use_pattern_matching=True
+        )
+        
+        is_hate_speech = bool(prediction == 1)
+        
+        if not is_hate_speech:
+            return ParaphraseResponse(
+                original_text=request.text,
+                paraphrases=None,
+                method_used=None,
+                count=0,
+                is_hate_speech=False,
+                hate_speech_confidence=float(confidence),
+                was_paraphrased=False,
+                message="No hate speech detected. Text was not paraphrased."
+            )
+        
+        # Use masking instead of paraphrasing
+        masker = masking_service.get_masking_service()
+        mask_result = masker.mask_text(request.text, "[REDACTED]")
+        
+        return ParaphraseResponse(
+            original_text=request.text,
+            paraphrases=[mask_result["masked_text"]],
+            method_used="masking",
+            count=1,
+            is_hate_speech=True,
+            hate_speech_confidence=float(confidence),
+            was_paraphrased=True,
+            message=f"Hate speech detected (confidence: {confidence:.2%}). Text has been masked (paraphrase endpoint deprecated - use /mask)."
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error: {e}")
+        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
