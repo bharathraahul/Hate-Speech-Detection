@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reader-Safe Text Masker</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            color: #E5E7EB;
+        }
+
+        h1 {
+            color: #EF4444;
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            font-weight: 700;
+            text-shadow: 0 0 20px rgba(239, 68, 68, 0.3);
+        }
+
+        .subtitle {
+            color: #9CA3AF;
+            margin-bottom: 2rem;
+            font-size: 1rem;
+        }
+
+        .card {
+            background: rgba(31, 41, 55, 0.8);
+            backdrop-filter: blur(10px);
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(239, 68, 68, 0.1);
+            width: 100%;
+            max-width: 600px;
+            box-sizing: border-box;
+            border: 1px solid rgba(239, 68, 68, 0.2);
+        }
+
+        textarea {
+            width: 100%;
+            height: 150px;
+            padding: 1rem;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 1rem;
+            resize: none;
+            box-sizing: border-box;
+            outline: none;
+            color: #E5E7EB;
+            background-color: rgba(17, 24, 39, 0.6);
+            transition: all 0.3s;
+        }
+
+        textarea::placeholder {
+            color: #6B7280;
+        }
+
+        textarea:focus {
+            border: 2px solid #EF4444;
+            box-shadow: 0 0 15px rgba(239, 68, 68, 0.3);
+            background-color: rgba(17, 24, 39, 0.8);
+        }
+
+        button {
+            width: 100%;
+            background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%);
+            color: white;
+            padding: 0.75rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 1.5rem;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
+        }
+
+        button:hover { 
+            background: linear-gradient(135deg, #DC2626 0%, #B91C1C 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(239, 68, 68, 0.4);
+        }
+        button:disabled { 
+            background: rgba(107, 114, 128, 0.5);
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .back-button {
+            background: linear-gradient(135deg, #6B7280 0%, #4B5563 100%);
+            margin-top: 0.5rem;
+            box-shadow: 0 4px 15px rgba(107, 114, 128, 0.3);
+        }
+
+        .back-button:hover { 
+            background: linear-gradient(135deg, #4B5563 0%, #374151 100%);
+            box-shadow: 0 6px 20px rgba(107, 114, 128, 0.4);
+        }
+
+        .result-box {
+            margin-top: 2rem;
+            padding: 1rem;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .result-header { 
+            font-weight: 700; 
+            display: block; 
+            margin-bottom: 0.5rem; 
+        }
+        
+        .safe { 
+            background-color: rgba(16, 185, 129, 0.2); 
+            color: #6EE7B7; 
+            border: 1px solid rgba(16, 185, 129, 0.4); 
+        }
+        .hate { 
+            background-color: rgba(239, 68, 68, 0.2); 
+            color: #FCA5A5; 
+            border: 1px solid rgba(239, 68, 68, 0.4); 
+        }
+
+        .masked-text {
+            margin-top: 1rem;
+            padding: 1rem;
+            background-color: rgba(17, 24, 39, 0.7);
+            border-radius: 8px;
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            font-family: monospace;
+            font-size: 1.1rem;
+            line-height: 1.6;
+            word-wrap: break-word;
+            color: #FCD34D;
+        }
+
+        .original-text {
+            margin-top: 0.5rem;
+            padding-top: 0.5rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            color: #D1D5DB;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Reader-Safe Text Masker</h1>
+    <p class="subtitle">Enter text below to mask hate speech words and make it reader-safe.</p>
+
+    <div class="card">
+        <textarea id="inputText" placeholder="Type a sentence here..."></textarea>
+        <button id="maskBtn" onclick="makeReaderSafe()">Make it reader-safe</button>
+        <button class="back-button" onclick="window.location.href='index.html'">← Back to Detector</button>
+
+        <div id="resultContainer" class="result-box">
+            <span id="resultHeader" class="result-header"></span>
+            <div id="resultDetails" style="margin-top: 0.5rem;"></div>
+            
+            <div id="maskedContainer" style="display:none;">
+                <div class="masked-text" id="maskedText"></div>
+                <div class="original-text">
+                    <strong>Original:</strong> <span id="originalText"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // API base URL - change this if your FastAPI server is on a different port
+        const API_BASE_URL = 'http://localhost:8000';
+
+        // --- Notification sidebar (similar to main page) ---
+        function initNotificationSidebar() {
+            if (!document.getElementById('notification-sidebar')) {
+                const sidebar = document.createElement('div');
+                sidebar.id = 'notification-sidebar';
+                sidebar.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    width: 350px;
+                    max-height: calc(100vh - 40px);
+                    overflow-y: auto;
+                    z-index: 10000;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 12px;
+                    pointer-events: none;
+                `;
+                document.body.appendChild(sidebar);
+            }
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initNotificationSidebar);
+        } else {
+            initNotificationSidebar();
+        }
+
+        function showNotification(message, type = 'info') {
+            initNotificationSidebar();
+
+            if (!document.getElementById('notification-styles-reader')) {
+                const style = document.createElement('style');
+                style.id = 'notification-styles-reader';
+                style.textContent = `
+                    @keyframes slideInRightReader {
+                        from { transform: translateX(400px); opacity: 0; }
+                        to { transform: translateX(0); opacity: 1; }
+                    }
+                    @keyframes slideOutRightReader {
+                        from { transform: translateX(0); opacity: 1; }
+                        to { transform: translateX(400px); opacity: 0; }
+                    }
+                    .notification-reader-enter {
+                        animation: slideInRightReader 0.4s ease-out;
+                    }
+                    .notification-reader-exit {
+                        animation: slideOutRightReader 0.3s ease-in;
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+
+            const sidebar = document.getElementById('notification-sidebar');
+            if (!sidebar) return;
+
+            const div = document.createElement('div');
+            div.className = 'notification-reader-enter';
+            let bg = '#3B82F6';
+            if (type === 'success') bg = '#10B981';
+            else if (type === 'error') bg = '#EF4444';
+
+            div.style.cssText = `
+                background: ${bg};
+                color: #F9FAFB;
+                padding: 0.75rem 1rem;
+                border-radius: 0.5rem;
+                box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+                pointer-events: auto;
+                font-size: 0.9rem;
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+            `;
+
+            const messageSpan = document.createElement('span');
+            messageSpan.textContent = message;
+            messageSpan.style.cssText = 'flex: 1;';
+
+            const closeSpan = document.createElement('span');
+            closeSpan.textContent = '×';
+            closeSpan.style.cssText = 'font-size: 1rem; cursor: pointer; opacity: 0.8;';
+            closeSpan.addEventListener('click', (e) => {
+                e.stopPropagation();
+                div.classList.remove('notification-reader-enter');
+                div.classList.add('notification-reader-exit');
+                setTimeout(() => {
+                    if (div.parentNode) div.parentNode.removeChild(div);
+                }, 300);
+            });
+
+            div.appendChild(messageSpan);
+            div.appendChild(closeSpan);
+
+            sidebar.appendChild(div);
+        }
+
+        async function extractAndAddHateWords(text) {
+            try {
+                const resp = await fetch(`${API_BASE_URL}/extract-hate-words-ml`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text })
+                });
+
+                if (!resp.ok) {
+                    const err = await resp.json().catch(() => ({ detail: 'Unknown error' }));
+                    console.error('extract-hate-words-ml error:', err);
+                    return;
+                }
+
+                const data = await resp.json();
+                const addedCount = data.count || 0;
+                if (addedCount > 0 && Array.isArray(data.words) && data.words.length > 0) {
+                    const wordList = data.words.map(w => w.word || w).join(', ');
+                    showNotification(`Added ${addedCount} new word(s) to dictionary: ${wordList}`, 'success');
+                }
+            } catch (err) {
+                console.error('Error calling extract-hate-words-ml from reader-safe:', err);
+            }
+        }
+        
+        async function makeReaderSafe() {
+            const input = document.getElementById('inputText').value;
+            const btn = document.getElementById('maskBtn');
+            const resultContainer = document.getElementById('resultContainer');
+            const resultHeader = document.getElementById('resultHeader');
+            const resultDetails = document.getElementById('resultDetails');
+            const maskedContainer = document.getElementById('maskedContainer');
+            const maskedText = document.getElementById('maskedText');
+            const originalText = document.getElementById('originalText');
+
+            if (!input.trim()) return alert("Please enter text");
+
+            btn.innerText = "Processing...";
+            btn.disabled = true;
+            resultContainer.style.display = 'none';
+            maskedContainer.style.display = 'none';
+
+            try {
+                console.log('Sending request to:', `${API_BASE_URL}/mask`);
+                console.log('Request body:', { text: input });
+                
+                const response = await fetch(`${API_BASE_URL}/mask`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: input })
+                });
+
+                console.log('Response status:', response.status);
+                console.log('Response ok:', response.ok);
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('Error response:', errorText);
+                    throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+                }
+
+                const data = await response.json();
+                console.log('Response data:', data);
+                
+                resultContainer.style.display = 'block';
+                
+                // Display results
+                const confidencePercent = (data.confidence * 100).toFixed(1);
+                
+                if (data.is_hate_speech) {
+                    resultContainer.className = 'result-box hate';
+                    resultHeader.innerText = "Hate Speech Detected - Text Masked";
+                    resultDetails.innerHTML = `
+                        <div style="line-height: 1.6;">
+                            <div><strong>Confidence Level:</strong> ${confidencePercent}%</div>
+                            <div><strong>Status:</strong> Hate speech detected and masked</div>
+                        </div>
+                    `;
+                    maskedContainer.style.display = 'block';
+                    maskedText.innerText = data.masked_text;
+                    originalText.innerText = data.original_text;
+
+                    // Also let the ML service update the dictionary and show notification
+                    extractAndAddHateWords(input);
+                } else {
+                    resultContainer.className = 'result-box safe';
+                    resultHeader.innerText = "Text is Reader-Safe";
+                    resultDetails.innerHTML = `
+                        <div style="line-height: 1.6;">
+                            <div><strong>Confidence Level:</strong> ${confidencePercent}%</div>
+                            <div><strong>Status:</strong> No hate speech detected</div>
+                        </div>
+                    `;
+                    maskedContainer.style.display = 'block';
+                    maskedText.innerText = data.masked_text;
+                    originalText.innerText = data.original_text;
+                }
+
+            } catch (error) {
+                console.error('Full error:', error);
+                resultContainer.style.display = 'block';
+                resultContainer.className = 'result-box hate';
+                resultHeader.innerText = "Error";
+                resultDetails.innerHTML = `
+                    <div style="line-height: 1.6;">
+                        <div><strong>Error:</strong> ${error.message}</div>
+                        <div style="margin-top: 0.5rem; color: #9CA3AF; font-size: 0.9rem;">
+                            Make sure the FastAPI server is running on ${API_BASE_URL}
+                        </div>
+                        <div style="margin-top: 0.5rem; color: #9CA3AF; font-size: 0.9rem;">
+                            Check the browser console (F12) for more details.
+                        </div>
+                    </div>
+                `;
+            } finally {
+                btn.innerText = "Make it reader-safe";
+                btn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>
+

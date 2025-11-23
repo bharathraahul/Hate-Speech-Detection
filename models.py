@@ -39,3 +39,25 @@ class ParaphraseResponse(BaseModel):
     paraphrases: List[str]
     method_used: str  # "transformer" or "rule_based"
     count: int
+
+class MaskRequest(BaseModel):
+    text: str
+
+class MaskResponse(BaseModel):
+    original_text: str
+    masked_text: str
+    is_hate_speech: bool
+    confidence: float
+
+class HateWordRequest(BaseModel):
+    word: str
+    category: Optional[str] = "profanity"  # profanity, slur, violence, degrading, etc.
+
+class HateWordResponse(BaseModel):
+    word: str
+    category: str
+
+class HateWordUpdateRequest(BaseModel):
+    old_word: str
+    new_word: str
+    category: Optional[str] = None

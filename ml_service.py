@@ -23,7 +23,14 @@ from sklearn.metrics import (
 # Local imports
 from config import logger
 import global_state as state
-import hate_speech_patterns
+
+# Pattern matching module (optional - removed but kept for compatibility)
+try:
+    import hate_speech_patterns
+    PATTERN_MATCHING_AVAILABLE = True
+except ImportError:
+    PATTERN_MATCHING_AVAILABLE = False
+    logger.warning("hate_speech_patterns module not found. Pattern matching will be disabled.")
 
 
 def preprocess_text(text: str) -> str:
@@ -113,6 +120,30 @@ def train_model(texts, labels, algorithm="naive_bayes", test_size=0.2, use_prepr
         tune_hyperparameters: Whether to perform grid search for hyperparameter tuning
     """
     try:
+        # Convert to lists in case we get other iterable types
+        texts = list(texts)
+        labels = list(labels)
+
+        # --- Slang hate-speech augmentation ---
+        # Add a small, curated set of slang hate-speech examples so the model
+        # learns these patterns explicitly (e.g. "mofuckas" ~ "mother fuckers").
+        slang_hate_examples = [
+            "you mofuckas",
+            "these mofuckas make me sick",
+            "stupid mofuckas",
+            "motherfucker",
+            "motherfuckers",
+            "you motherfucker",
+            "fukkin mofuckas",
+        ]
+        if slang_hate_examples:
+            texts.extend(slang_hate_examples)
+            labels.extend([1] * len(slang_hate_examples))
+            logger.info(
+                "Augmented training data with %d slang hate-speech examples.",
+                len(slang_hate_examples),
+            )
+
         # Split data into train and test (before preprocessing to avoid data leakage)
         X_train, X_test, y_train, y_test = train_test_split(
             texts, labels, test_size=test_size, random_state=42, stratify=labels
@@ -308,29 +339,60 @@ def predict_single(text: str, preprocess=False, use_pattern_matching=True):
         except:
             ml_confidence = 0.5  # Default confidence if we can't calculate
     
-    # Hybrid approach: Combine ML prediction with pattern matching
-    if use_pattern_matching:
-        pattern_result = hate_speech_patterns.check_hate_speech_patterns(text)
-        pattern_match = pattern_result["pattern_match"]
-        pattern_confidence = pattern_result["confidence"]
-        
-        # If pattern matching detects hate speech, override ML if ML confidence is low
-        if pattern_match and pattern_confidence > 0.7:
-            if prediction == 0 or ml_confidence < 0.6:
-                # Pattern matching is confident, ML is not - use pattern matching
-                logger.info(f"Pattern matching overrode ML: pattern_conf={pattern_confidence:.2f}, ml_conf={ml_confidence:.2f}")
-                prediction = 1
-                # Use weighted average, but favor pattern matching when it's confident
-                confidence = max(ml_confidence, pattern_confidence * 0.8)
+    # Hybrid approach: Combine ML prediction with pattern matching (if available)
+    if use_pattern_matching and PATTERN_MATCHING_AVAILABLE:
+        try:
+            pattern_result = hate_speech_patterns.check_hate_speech_patterns(text)
+            pattern_match = pattern_result["pattern_match"]
+            pattern_confidence = pattern_result["confidence"]
+            
+            # If pattern matching detects hate speech, override ML if ML confidence is low
+            if pattern_match and pattern_confidence > 0.7:
+                if prediction == 0 or ml_confidence < 0.6:
+                    # Pattern matching is confident, ML is not - use pattern matching
+                    logger.info(f"Pattern matching overrode ML: pattern_conf={pattern_confidence:.2f}, ml_conf={ml_confidence:.2f}")
+                    prediction = 1
+                    # Use weighted average, but favor pattern matching when it's confident
+                    confidence = max(ml_confidence, pattern_confidence * 0.8)
+                else:
+                    # Both agree or ML is confident - use weighted average
+                    confidence = (ml_confidence * 0.6 + pattern_confidence * 0.4)
             else:
-                # Both agree or ML is confident - use weighted average
-                confidence = (ml_confidence * 0.6 + pattern_confidence * 0.4)
-        else:
-            # Pattern matching doesn't detect or is uncertain - use ML
+                # Pattern matching doesn't detect or is uncertain - use ML
+                confidence = ml_confidence
+        except Exception as e:
+            logger.warning(f"Pattern matching failed: {e}. Using ML prediction only.")
             confidence = ml_confidence
     else:
         confidence = ml_confidence
-    
+
+    # --- Safety check to reduce obvious false positives ---
+    # If the model predicts hate speech but:
+    # - confidence is not extremely high, and
+    # - the text does not contain any strong offensive stems,
+    # then we downgrade it to non-hate. This prevents cases like "I love you"
+    # from being flagged as hate speech.
+    if prediction == 1:
+        text_lower = str(text).lower()
+        # Core offensive stems (must be very conservative here)
+        offensive_stems = [
+            "fuck", "fuk", "bitch", "cunt", "nigg", "fag", "hoe", "whore",
+            "asshole", "retard", "retarded",
+            "kill", "murder", "destroy", "annihilat", "eliminat",
+            "inferior", "worthless", "subhuman", "scum", "disgusting",
+        ]
+        has_offensive_stem = any(stem in text_lower for stem in offensive_stems)
+
+        # Only override when confidence is moderate and we see no strong stems
+        if not has_offensive_stem and confidence < 0.8:
+            logger.info(
+                "Downgrading prediction to non-hate due to lack of offensive stems: "
+                f"text={text!r}, ml_conf={ml_confidence:.3f}"
+            )
+            prediction = 0
+            # Set confidence to the complement, capped away from 0/1 extremes
+            confidence = max(0.2, min(0.8, 1.0 - ml_confidence))
+
     return int(prediction), float(confidence)
 
 def predict_batch(texts: List[str], use_pattern_matching=True):
@@ -351,3 +413,101 @@ def predict_batch(texts: List[str], use_pattern_matching=True):
         except Exception as e:
             results.append({"text": text, "error": str(e)})
     return results
+
+def identify_hate_words_ml(text: str, top_n: int = 10) -> List[str]:
+    """
+    Use ML model to identify which words contribute most to hate speech prediction.
+    Returns list of words that the model considers important for hate speech.
+    
+    Args:
+        text: Input text to analyze
+        top_n: Number of top contributing words to return
+        
+    Returns:
+        List of words that contribute to hate speech classification
+    """
+    if state.model is None:
+        return []
+    
+    try:
+        import re
+        
+        # Get the pipeline components
+        if not hasattr(state.model, 'named_steps'):
+            return []
+        
+        # Get TF-IDF vectorizer from pipeline
+        tfidf = state.model.named_steps.get('tfidf')
+        classifier = state.model.named_steps.get('classifier')
+        
+        if tfidf is None or classifier is None:
+            return []
+        
+        # Transform text to get feature vector
+        text_vector = tfidf.transform([text])
+        
+        # Get feature names (vocabulary)
+        feature_names = tfidf.get_feature_names_out()
+        
+        # Get classifier coefficients/importance
+        feature_scores = None
+        top_indices = None
+        
+        if hasattr(classifier, 'coef_'):
+            # Logistic Regression, SVM - use coefficients
+            coef = classifier.coef_[0]
+            # Get feature scores: multiply TF-IDF values by coefficients
+            text_array = text_vector.toarray()[0]
+            feature_scores = text_array * coef
+            # Get top contributing features (highest scores)
+            top_indices = np.argsort(feature_scores)[-top_n:][::-1]
+        elif hasattr(classifier, 'feature_importances_'):
+            # Random Forest - use feature importances
+            text_array = text_vector.toarray()[0]
+            feature_scores = text_array * classifier.feature_importances_
+            top_indices = np.argsort(feature_scores)[-top_n:][::-1]
+        elif hasattr(classifier, 'feature_log_prob_'):
+            # Naive Bayes - use log probabilities difference
+            # Compare hate speech class (1) vs normal class (0)
+            log_prob_hate = classifier.feature_log_prob_[1]
+            log_prob_normal = classifier.feature_log_prob_[0]
+            text_array = text_vector.toarray()[0]
+            # Difference shows which features favor hate speech
+            feature_scores = text_array * (log_prob_hate - log_prob_normal)
+            top_indices = np.argsort(feature_scores)[-top_n:][::-1]
+        else:
+            logger.warning("Classifier type not supported for word identification")
+            return []
+        
+        if feature_scores is None or top_indices is None:
+            return []
+        
+        # Extract words from top features
+        hate_words = []
+        words_in_text = set(re.findall(r'\b\w+\b', text.lower()))
+        
+        for idx in top_indices:
+            # Get features with positive contribution to hate speech
+            score = feature_scores[idx]
+            if score > 0:  # Only positive contributions to hate speech
+                feature_name = feature_names[idx]
+                # Check if this feature (word or n-gram) appears in the text
+                if ' ' in feature_name:
+                    # It's an n-gram, extract individual words
+                    ngram_words = feature_name.split()
+                    # Only add if all words in n-gram are in the text
+                    if all(word in words_in_text for word in ngram_words):
+                        hate_words.extend(ngram_words)
+                else:
+                    # Single word - add if it's in the text
+                    if feature_name in words_in_text:
+                        hate_words.append(feature_name)
+        
+        # Remove duplicates and return
+        unique_words = list(set(hate_words))
+        logger.info(f"ML identified {len(unique_words)} unique hate words from text")
+        return unique_words
+        
+    except Exception as e:
+        logger.error(f"Error identifying hate words with ML: {e}")
+        return []

@@ -9,60 +9,71 @@
 
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #F3F4F6;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
             margin: 0;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             min-height: 100vh;
-            color: #1F2937;
+            color: #E5E7EB;
         }
 
         h1 {
-            color: #4F46E5;
+            color: #EF4444;
             font-size: 2.5rem;
             margin-bottom: 0.5rem;
             font-weight: 700;
+            text-shadow: 0 0 20px rgba(239, 68, 68, 0.3);
         }
 
         .subtitle {
-            color: #4B5563;
+            color: #9CA3AF;
             margin-bottom: 2rem;
             font-size: 1rem;
         }
 
         .card {
-            background: white;
+            background: rgba(31, 41, 55, 0.8);
+            backdrop-filter: blur(10px);
             padding: 2rem;
             border-radius: 12px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(239, 68, 68, 0.1);
             width: 100%;
             max-width: 600px;
             box-sizing: border-box;
+            border: 1px solid rgba(239, 68, 68, 0.2);
         }
 
         textarea {
             width: 100%;
             height: 150px;
             padding: 1rem;
-            border: 1px solid #6366F1;
+            border: 1px solid rgba(239, 68, 68, 0.3);
             border-radius: 8px;
             font-family: inherit;
             font-size: 1rem;
             resize: none;
             box-sizing: border-box;
             outline: none;
-            color: #374151;
+            color: #E5E7EB;
+            background-color: rgba(17, 24, 39, 0.6);
+            transition: all 0.3s;
         }
 
         textarea:focus {
-            border: 2px solid #4F46E5;
+            border: 2px solid #EF4444;
+            box-shadow: 0 0 15px rgba(239, 68, 68, 0.3);
+            background-color: rgba(17, 24, 39, 0.8);
+        }
+
+        textarea::placeholder {
+            color: #6B7280;
         }
 
         button {
             width: 100%;
-            background-color: #4F46E5;
+            background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%);
             color: white;
             padding: 0.75rem;
             border: none;
@@ -71,97 +82,837 @@
             font-weight: 600;
             cursor: pointer;
             margin-top: 1.5rem;
-            transition: background-color 0.2s;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
         }
 
-        button:hover { background-color: #4338CA; }
-        button:disabled { background-color: #A5B4FC; cursor: not-allowed; }
+        button:hover { 
+            background: linear-gradient(135deg, #DC2626 0%, #B91C1C 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(239, 68, 68, 0.4);
+        }
+        button:disabled { 
+            background: rgba(107, 114, 128, 0.5);
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
 
         .result-box {
             margin-top: 2rem;
             padding: 1rem;
             border-radius: 8px;
             display: none;
+            visibility: visible;
+            opacity: 1;
+        }
+        
+        .result-box.visible {
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+        }
+        
+        /* Ensure results stay visible - highest priority */
+        #resultContainer.visible {
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
         }
 
         .result-header { font-weight: 700; display: block; margin-bottom: 0.5rem; }
         
-        .safe { background-color: #DEF7EC; color: #03543F; border: 1px solid #84E1BC; }
-        .hate { background-color: #FDE8E8; color: #9B1C1C; border: 1px solid #F8B4B4; }
+        .safe { 
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(5, 150, 105, 0.2) 100%);
+            color: #6EE7B7;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.2);
+        }
+        .hate { 
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.2) 0%, rgba(220, 38, 38, 0.2) 100%);
+            color: #FCA5A5;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            box-shadow: 0 0 15px rgba(239, 68, 68, 0.3);
+        }
 
         .replacement-section {
             margin-top: 1rem;
             padding-top: 1rem;
             border-top: 1px solid rgba(0,0,0,0.1);
         }
+
+        .dictionary-section {
+            margin-top: 2rem;
+            padding: 1.5rem;
+            background: rgba(17, 24, 39, 0.6);
+            backdrop-filter: blur(10px);
+            border-radius: 8px;
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            display: none;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .dictionary-section.active {
+            display: block;
+        }
+
+        .dictionary-section h3 {
+            color: #EF4444;
+            margin-top: 0;
+            margin-bottom: 1rem;
+        }
+
+        .dict-controls {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .dict-controls input, .dict-controls select {
+            flex: 1;
+            padding: 0.5rem;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-radius: 6px;
+            font-size: 0.9rem;
+            background-color: rgba(17, 24, 39, 0.8);
+            color: #E5E7EB;
+        }
+
+        .dict-controls input:focus, .dict-controls select:focus {
+            outline: none;
+            border-color: #EF4444;
+            box-shadow: 0 0 10px rgba(239, 68, 68, 0.3);
+        }
+
+        .dict-controls button {
+            padding: 0.5rem 1rem;
+            margin: 0;
+            width: auto;
+            font-size: 0.9rem;
+        }
+
+        .dict-list {
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 1rem;
+        }
+
+        .dict-list::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .dict-list::-webkit-scrollbar-track {
+            background: rgba(17, 24, 39, 0.5);
+            border-radius: 4px;
+        }
+
+        .dict-list::-webkit-scrollbar-thumb {
+            background: rgba(239, 68, 68, 0.5);
+            border-radius: 4px;
+        }
+
+        .dict-list::-webkit-scrollbar-thumb:hover {
+            background: rgba(239, 68, 68, 0.7);
+        }
+
+        .dict-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            background: rgba(31, 41, 55, 0.6);
+            border-radius: 6px;
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            transition: all 0.3s;
+        }
+
+        .dict-item:hover {
+            background: rgba(31, 41, 55, 0.8);
+            border-color: rgba(239, 68, 68, 0.4);
+            transform: translateX(5px);
+        }
+
+        .dict-item-info {
+            flex: 1;
+        }
+
+        .dict-item-word {
+            font-weight: 600;
+            color: #FCA5A5;
+        }
+
+        .dict-item-category {
+            font-size: 0.85rem;
+            color: #9CA3AF;
+            margin-top: 0.25rem;
+        }
+
+        .dict-item-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .dict-item-actions button {
+            padding: 0.25rem 0.75rem;
+            margin: 0;
+            width: auto;
+            font-size: 0.85rem;
+        }
+
+        .btn-update {
+            background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
+            box-shadow: 0 2px 10px rgba(245, 158, 11, 0.3);
+        }
+
+        .btn-update:hover {
+            background: linear-gradient(135deg, #D97706 0%, #B45309 100%);
+            box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4);
+        }
+
+        .btn-delete {
+            background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%);
+            box-shadow: 0 2px 10px rgba(239, 68, 68, 0.3);
+        }
+
+        .btn-delete:hover {
+            background: linear-gradient(135deg, #DC2626 0%, #B91C1C 100%);
+            box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4);
+        }
     </style>
 </head>
 <body>
 
     <h1>Hate Speech Detector</h1>
-    <p class="subtitle">Enter text below to detect hate speech and get a positive replacement.</p>
+    <p class="subtitle">Enter text below to detect hate speech.</p>
 
     <div class="card">
         <textarea id="inputText" placeholder="Type something here..."></textarea>
         <button id="analyzeBtn" onclick="analyzeText()">Analyze Text</button>
+        <button id="readerSafeBtn" onclick="window.location.href='reader-safe.html'" style="margin-top: 0.75rem; background: linear-gradient(135deg, #10B981 0%, #059669 100%); box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);">Reader-safe</button>
+        <button id="dictBtn" onclick="toggleDictionary()" style="margin-top: 0.75rem; background: linear-gradient(135deg, #6366F1 0%, #4F46E5 100%); box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);">Hate Words Dictionary</button>
 
         <div id="resultContainer" class="result-box">
             <span id="resultHeader" class="result-header"></span>
-            <span id="resultText"></span>
+            <div id="resultDetails" style="margin-top: 0.5rem;"></div>
+        </div>
+
+        <div id="dictionarySection" class="dictionary-section">
+            <h3 style="margin-top: 0; margin-bottom: 1rem;">Hate Words Dictionary</h3>
             
-            <div id="rewriteContainer" class="replacement-section" style="display:none;">
-                <strong>Censored Text:</strong>
-                <p id="rewriteText" style="color: #4F46E5; font-weight: 500; font-family: monospace;"></p>
+            <div class="dict-controls">
+                <input type="text" id="newWordInput" placeholder="Enter word">
+                <select id="categorySelect">
+                    <option value="profanity">Profanity</option>
+                    <option value="slur">Slur</option>
+                    <option value="violence">Violence</option>
+                    <option value="degrading">Degrading</option>
+                    <option value="threatening">Threatening</option>
+                    <option value="other">Other</option>
+                </select>
+                <button onclick="addWord()" style="background: linear-gradient(135deg, #10B981 0%, #059669 100%); box-shadow: 0 2px 10px rgba(16, 185, 129, 0.3);">Add</button>
             </div>
+
+            <div id="updateControls" class="dict-controls" style="display: none;">
+                <input type="text" id="updateWordInput" placeholder="New word">
+                <select id="updateCategorySelect">
+                    <option value="profanity">Profanity</option>
+                    <option value="slur">Slur</option>
+                    <option value="violence">Violence</option>
+                    <option value="degrading">Degrading</option>
+                    <option value="threatening">Threatening</option>
+                    <option value="other">Other</option>
+                </select>
+                <button onclick="saveUpdate()" style="background-color: #F59E0B;">Save</button>
+                <button onclick="cancelUpdate()" style="background-color: #6B7280;">Cancel</button>
+            </div>
+
+            <div id="dictList" class="dict-list"></div>
         </div>
     </div>
 
     <script>
+        // API base URL - change this if your FastAPI server is on a different port
+        const API_BASE_URL = 'http://localhost:8000';
+        
         async function analyzeText() {
             const input = document.getElementById('inputText').value;
             const btn = document.getElementById('analyzeBtn');
             const resultContainer = document.getElementById('resultContainer');
             const resultHeader = document.getElementById('resultHeader');
-            const resultText = document.getElementById('resultText');
-            const rewriteContainer = document.getElementById('rewriteContainer');
-            const rewriteText = document.getElementById('rewriteText');
+            const resultDetails = document.getElementById('resultDetails');
 
             if (!input.trim()) return alert("Please enter text");
 
             btn.innerText = "Analyzing...";
             btn.disabled = true;
+            // Only hide if we're starting a new analysis (clear previous results temporarily)
             resultContainer.style.display = 'none';
+            resultContainer.classList.remove('visible');
 
             try {
-                const response = await fetch('http://localhost:8000/predict', {
+                console.log('Sending request to:', `${API_BASE_URL}/predict`);
+                console.log('Request body:', { text: input });
+                
+                // First, check for hate speech
+                const response = await fetch(`${API_BASE_URL}/predict`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ text: input })
                 });
 
+                console.log('Response status:', response.status);
+                console.log('Response ok:', response.ok);
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('Error response:', errorText);
+                    throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+                }
+
                 const data = await response.json();
+                console.log('Response data:', data);
                 resultContainer.style.display = 'block';
 
+                // Display full PredictionOutput details
+                const confidencePercent = (data.confidence * 100).toFixed(1);
+                const labelDisplay = data.label === 'hate_speech' ? 'Hate Speech' : 'Normal';
+                
+                // Create detailed output display
+                let detailsHTML = `
+                    <div style="line-height: 1.6;">
+                        <div><strong>Label:</strong> ${labelDisplay}</div>
+                        <div><strong>Confidence Level:</strong> ${confidencePercent}%</div>
+                        <div><strong>Is Hate Speech:</strong> ${data.is_hate_speech ? 'Yes' : 'No'}</div>
+                        <div style="margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid rgba(0,0,0,0.1);">
+                            <strong>Analyzed Text:</strong>
+                            <div style="margin-top: 0.25rem; font-style: italic; color: #6B7280;">"${data.text}"</div>
+                        </div>
+                    </div>
+                `;
+                
+                resultDetails.innerHTML = detailsHTML;
+
+                // Set the appropriate class and ensure visible class is always present
                 if (data.is_hate_speech) {
-                    resultContainer.className = 'result-box hate';
+                    resultContainer.className = 'result-box hate visible';
                     resultHeader.innerText = "⚠️ Hate Speech Detected";
-                    resultText.innerText = `Confidence: ${(data.confidence * 100).toFixed(1)}%`;
                     
-                    rewriteContainer.style.display = 'block';
-                    rewriteText.innerText = data.clean_text;
+                    // Automatically extract and add hate words to dictionary
+                    // Run this asynchronously without blocking the UI
+                    extractAndAddHateWords(input).catch(err => {
+                        console.error('Error in extractAndAddHateWords:', err);
+                    });
                 } else {
-                    resultContainer.className = 'result-box safe';
-                    resultHeader.innerText = "✅ This text looks safe";
-                    resultText.innerText = "No hate speech detected.";
-                    rewriteContainer.style.display = 'none';
+                    resultContainer.className = 'result-box safe visible';
+                    resultHeader.innerText = "This text looks safe";
+                }
+                
+                // Force results to stay visible with inline styles and class
+                resultContainer.style.display = 'block';
+                resultContainer.style.visibility = 'visible';
+                resultContainer.style.opacity = '1';
+                resultContainer.classList.add('visible');
+                
+                // Add a safeguard: prevent results from being hidden
+                // Use a MutationObserver to ensure display stays as 'block'
+                if (!resultContainer._visibilityGuard) {
+                    resultContainer._visibilityGuard = new MutationObserver(function(mutations) {
+                        mutations.forEach(function(mutation) {
+                            if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
+                                const display = window.getComputedStyle(resultContainer).display;
+                                if (display === 'none' && resultContainer.classList.contains('visible')) {
+                                    console.log('Preventing results from being hidden');
+                                    resultContainer.style.display = 'block';
+                                    resultContainer.style.visibility = 'visible';
+                                    resultContainer.style.opacity = '1';
+                                }
+                            }
+                        });
+                    });
+                    resultContainer._visibilityGuard.observe(resultContainer, {
+                        attributes: true,
+                        attributeFilter: ['style', 'class']
+                    });
                 }
 
             } catch (error) {
-                alert("Backend error. Is the Python server running?");
-                console.error(error);
+                console.error('Full error:', error);
+                resultContainer.className = 'result-box hate visible';
+                resultContainer.style.display = 'block';
+                resultContainer.style.visibility = 'visible';
+                resultContainer.style.opacity = '1';
+                resultHeader.innerText = "Error";
+                resultDetails.innerHTML = `
+                    <div style="line-height: 1.6;">
+                        <div><strong>Error:</strong> ${error.message}</div>
+                        <div style="margin-top: 0.5rem; color: #9CA3AF; font-size: 0.9rem;">
+                            Make sure the FastAPI server is running on ${API_BASE_URL}
+                        </div>
+                        <div style="margin-top: 0.5rem; color: #9CA3AF; font-size: 0.9rem;">
+                            Check the browser console (F12) for more details.
+                        </div>
+                    </div>
+                `;
             } finally {
                 btn.innerText = "Analyze Text";
                 btn.disabled = false;
+            }
+        }
+
+        // Dictionary Management
+        let editingWord = null;
+
+        async function extractAndAddHateWords(text) {
+            try {
+                // Use ML model to extract and add hate words (up to 20)
+                const extractResponse = await fetch(`${API_BASE_URL}/extract-hate-words-ml`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: text })
+                });
+
+                if (extractResponse.ok) {
+                    const extractData = await extractResponse.json();
+                    const addedCount = extractData.count || 0;
+                    
+                    console.log('ML extraction response:', extractData);
+                    
+                    // Always reload dictionary to show current state
+                    loadDictionary();
+                    
+                    // Show notification if words were added
+                    if (addedCount > 0) {
+                        const wordList = extractData.words.map(w => w.word || w).join(', ');
+                        showNotification(`Added ${addedCount} ML-identified word(s) to dictionary: ${wordList}`, 'success');
+                    } else {
+                        // Show info message even when no words are added
+                        const mlCandidates = extractData.ml_candidates || [];
+                        const filtered = extractData.filtered || [];
+                        if (mlCandidates.length > 0) {
+                            console.log('ML identified words:', mlCandidates, 'but they were filtered out (already in dictionary or common words)');
+                            // Show a subtle notification that ML analysis ran but no new words found
+                            if (filtered.length === 0 && mlCandidates.length > 0) {
+                                showNotification(`ML analysis complete. All identified words are already in dictionary or are common words.`);
+                            }
+                        }
+                    }
+                } else {
+                    const errorData = await extractResponse.json().catch(() => ({ detail: 'Unknown error' }));
+                    console.error('Error response from extract-hate-words-ml:', errorData);
+                    showNotification('Error extracting hate words: ' + (errorData.detail || 'Unknown error'), 'error');
+                }
+            } catch (error) {
+                console.error('Error extracting hate words with ML:', error);
+                showNotification('Error extracting hate words: ' + error.message, 'error');
+            }
+        }
+
+        // Keep track of active notifications
+        let activeNotifications = [];
+
+        // Initialize notification sidebar
+        function initNotificationSidebar() {
+            if (!document.getElementById('notification-sidebar')) {
+                const sidebar = document.createElement('div');
+                sidebar.id = 'notification-sidebar';
+                sidebar.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    width: 350px;
+                    max-height: calc(100vh - 40px);
+                    overflow-y: auto;
+                    z-index: 10000;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 12px;
+                    pointer-events: none;
+                `;
+                document.body.appendChild(sidebar);
+                console.log('Notification sidebar initialized');
+            }
+        }
+        
+        // Initialize immediately (don't wait for DOMContentLoaded)
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initNotificationSidebar);
+        } else {
+            // DOM is already ready
+            initNotificationSidebar();
+        }
+
+        function showNotification(message, type = 'info') {
+    // Initialize sidebar if not exists
+    initNotificationSidebar();
+    
+    console.log('Showing notification:', message, type);
+    
+    // Add animation styles if not already added
+    if (!document.getElementById('notification-styles')) {
+        const style = document.createElement('style');
+        style.id = 'notification-styles';
+        style.textContent = `
+            @keyframes slideInRight {
+                from {
+                    transform: translateX(400px);
+                    opacity: 0;
+                }
+                to {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+            }
+            
+            @keyframes slideOutRight {
+                from {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+                to {
+                    transform: translateX(400px);
+                    opacity: 0;
+                }
+            }
+            
+            @keyframes fadeIn {
+                from {
+                    opacity: 0;
+                    transform: scale(0.9);
+                }
+                to {
+                    opacity: 1;
+                    transform: scale(1);
+                }
+            }
+            
+            @keyframes fadeOut {
+                from {
+                    opacity: 1;
+                    transform: scale(1);
+                }
+                to {
+                    opacity: 0;
+                    transform: scale(0.9);
+                }
+            }
+            
+            .notification-enter {
+                animation: slideInRight 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55), fadeIn 0.5s ease-out;
+            }
+            
+            .notification-exit {
+                animation: slideOutRight 0.4s ease-in, fadeOut 0.4s ease-in;
+            }
+            
+            #notification-sidebar::-webkit-scrollbar {
+                width: 6px;
+            }
+            
+            #notification-sidebar::-webkit-scrollbar-track {
+                background: transparent;
+            }
+            
+            #notification-sidebar::-webkit-scrollbar-thumb {
+                background: rgba(255, 255, 255, 0.3);
+                border-radius: 3px;
+            }
+            
+            #notification-sidebar::-webkit-scrollbar-thumb:hover {
+                background: rgba(255, 255, 255, 0.5);
+            }
+        `;
+        document.head.appendChild(style);
+    }
+    
+    const sidebar = document.getElementById('notification-sidebar');
+    
+    if (!sidebar) {
+        console.error('Notification sidebar not found!');
+        return;
+    }
+    
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = 'notification-enter';
+    
+    // Set background color based on type
+    let bgColor = '#4F46E5'; // default blue
+    let icon = 'ℹ️';
+    if (type === 'success') {
+        bgColor = '#10B981'; // green
+        icon = '✓';
+    } else if (type === 'error') {
+        bgColor = '#EF4444'; // red
+        icon = '✗';
+    } else if (type === 'info') {
+        bgColor = '#3B82F6'; // blue
+        icon = 'ℹ️';
+    } else if (type === 'warning') {
+        bgColor = '#F59E0B'; // orange
+        icon = '⚠️';
+    }
+    
+    notification.style.cssText = `
+        background: ${bgColor};
+        color: white;
+        padding: 1rem 1.5rem;
+        border-radius: 8px;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
+        font-weight: 500;
+        word-wrap: break-word;
+        cursor: pointer;
+        transition: transform 0.2s, box-shadow 0.2s;
+        pointer-events: auto;
+        border-left: 4px solid rgba(255, 255, 255, 0.5);
+        display: flex;
+        align-items: flex-start;
+        gap: 0.75rem;
+    `;
+    
+    const iconSpan = document.createElement('span');
+    iconSpan.textContent = icon;
+    iconSpan.style.cssText = 'font-size: 1.2rem; flex-shrink: 0;';
+    
+    const messageSpan = document.createElement('span');
+    messageSpan.textContent = message;
+    messageSpan.style.cssText = 'flex: 1; line-height: 1.5;';
+    
+    const closeSpan = document.createElement('span');
+    closeSpan.textContent = '×';
+    closeSpan.style.cssText = 'font-size: 1rem; margin-left: 0.5rem; cursor: pointer; opacity: 0.8;';
+    
+    // Close ONLY when the close button is clicked
+    closeSpan.addEventListener('click', (e) => {
+        e.stopPropagation(); // don't let the click bubble
+        dismissNotification(notification);
+    });
+    
+    notification.appendChild(iconSpan);
+    notification.appendChild(messageSpan);
+    notification.appendChild(closeSpan);
+    
+    // Hover effect
+    notification.addEventListener('mouseenter', () => {
+        notification.style.transform = 'translateX(-5px) scale(1.02)';
+        notification.style.boxShadow = '0 12px 30px -5px rgba(0, 0, 0, 0.4), 0 6px 8px -2px rgba(0, 0, 0, 0.2)';
+    });
+    notification.addEventListener('mouseleave', () => {
+        notification.style.transform = 'translateX(0) scale(1)';
+        notification.style.boxShadow = '0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.2)';
+    });
+    
+    sidebar.appendChild(notification);
+    activeNotifications.push(notification);
+    
+    // Scroll to show new notification
+    sidebar.scrollTop = sidebar.scrollHeight;
+    
+    // Auto-dismiss after 1 minute (60000 ms), unless user closes earlier
+    const timeoutId = setTimeout(() => {
+        dismissNotification(notification);
+    }, 60000);
+    notification._timeoutId = timeoutId;
+    notification._startTime = Date.now();
+}
+
+function dismissNotification(notification) {
+    if (notification._isDismissing) {
+        return;
+    }
+    notification._isDismissing = true;
+    
+    // Just clean up from active list
+    activeNotifications = activeNotifications.filter(n => n !== notification);
+    
+    // Exit animation
+    notification.className = 'notification-exit';
+    
+    setTimeout(() => {
+        if (notification && notification.parentNode) {
+            notification.parentNode.removeChild(notification);
+        }
+    }, 400);
+}
+
+
+        function toggleDictionary() {
+            const section = document.getElementById('dictionarySection');
+            section.classList.toggle('active');
+            if (section.classList.contains('active')) {
+                loadDictionary();
+            }
+            // Ensure results stay visible when toggling dictionary
+            const resultContainer = document.getElementById('resultContainer');
+            if (resultContainer && resultContainer.innerHTML.trim() !== '') {
+                resultContainer.style.display = 'block';
+                resultContainer.style.visibility = 'visible';
+                resultContainer.style.opacity = '1';
+            }
+        }
+
+        async function loadDictionary() {
+            try {
+                console.log('Loading dictionary from:', `${API_BASE_URL}/hate-words`);
+                const response = await fetch(`${API_BASE_URL}/hate-words`);
+                
+                console.log('Response status:', response.status, response.statusText);
+                
+                if (!response.ok) {
+                    let errorMessage = `Server error (${response.status})`;
+                    try {
+                        const errorData = await response.json();
+                        errorMessage = errorData.detail || errorMessage;
+                    } catch (e) {
+                        const errorText = await response.text();
+                        errorMessage = errorText || errorMessage;
+                    }
+                    console.error('Error response:', response.status, errorMessage);
+                    throw new Error(errorMessage);
+                }
+                
+                const words = await response.json();
+                console.log('Dictionary loaded successfully:', Object.keys(words).length, 'words');
+                displayDictionary(words);
+            } catch (error) {
+                console.error('Error loading dictionary:', error);
+                
+                // Check if it's a network error
+                if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+                    showNotification(`Failed to load dictionary: Server not reachable. Make sure the FastAPI server is running on ${API_BASE_URL}`, 'error');
+                } else {
+                    showNotification(`Failed to load dictionary: ${error.message}`, 'error');
+                }
+                
+                // Still try to display empty dictionary
+                displayDictionary({});
+            }
+        }
+
+        function displayDictionary(words) {
+            const list = document.getElementById('dictList');
+            const wordEntries = Object.entries(words);
+            
+            if (wordEntries.length === 0) {
+                list.innerHTML = '<p style="color: #9CA3AF; text-align: center;">No words in dictionary</p>';
+                return;
+            }
+
+            list.innerHTML = wordEntries.map(([word, category]) => `
+                <div class="dict-item">
+                    <div class="dict-item-info">
+                        <div class="dict-item-word">${word}</div>
+                        <div class="dict-item-category">Category: ${category}</div>
+                    </div>
+                    <div class="dict-item-actions">
+                        <button class="btn-update" onclick="startUpdate('${word}', '${category}')">Update</button>
+                        <button class="btn-delete" onclick="deleteWord('${word}')">Delete</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function addWord() {
+            const word = document.getElementById('newWordInput').value.trim();
+            const category = document.getElementById('categorySelect').value;
+
+            if (!word) {
+                showNotification('Please enter a word', 'warning');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/hate-words`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ word, category })
+                });
+
+                if (response.ok) {
+                    document.getElementById('newWordInput').value = '';
+                    loadDictionary();
+                    showNotification(`Word "${word}" added to dictionary (${category})`, 'success');
+                } else {
+                    const error = await response.json();
+                    showNotification(`Error: ${error.detail || 'Failed to add word'}`, 'error');
+                }
+            } catch (error) {
+                console.error('Error adding word:', error);
+                showNotification('Failed to add word', 'error');
+            }
+        }
+
+        function startUpdate(word, category) {
+            editingWord = word;
+            document.getElementById('updateWordInput').value = word;
+            document.getElementById('updateCategorySelect').value = category;
+            document.getElementById('updateControls').style.display = 'flex';
+            document.getElementById('updateControls').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function cancelUpdate() {
+            editingWord = null;
+            document.getElementById('updateControls').style.display = 'none';
+            document.getElementById('updateWordInput').value = '';
+        }
+
+        async function saveUpdate() {
+            if (!editingWord) return;
+
+            const newWord = document.getElementById('updateWordInput').value.trim();
+            const category = document.getElementById('updateCategorySelect').value;
+
+            if (!newWord) {
+                showNotification('Please enter a word', 'warning');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/hate-words`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ old_word: editingWord, new_word: newWord, category })
+                });
+
+                if (response.ok) {
+                    const oldWord = editingWord;
+                    cancelUpdate();
+                    loadDictionary();
+                    if (oldWord !== newWord) {
+                        showNotification(`Word "${oldWord}" updated to "${newWord}" (${category})`, 'success');
+                    } else {
+                        showNotification(`Word "${newWord}" category updated to ${category}`, 'success');
+                    }
+                } else {
+                    const error = await response.json();
+                    showNotification(`Error: ${error.detail || 'Failed to update word'}`, 'error');
+                }
+            } catch (error) {
+                console.error('Error updating word:', error);
+                showNotification('Failed to update word', 'error');
+            }
+        }
+
+        async function deleteWord(word) {
+            if (!confirm(`Are you sure you want to delete "${word}"?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/hate-words/${encodeURIComponent(word)}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    loadDictionary();
+                    showNotification(`Word "${word}" deleted from dictionary`, 'success');
+                } else {
+                    const error = await response.json();
+                    showNotification(`Error: ${error.detail || 'Failed to delete word'}`, 'error');
+                }
+            } catch (error) {
+                console.error('Error deleting word:', error);
+                showNotification('Failed to delete word', 'error');
             }
         }
     </script>
